@@ -15,15 +15,15 @@ int wave_counter = 0;
 void setup(void) {
     Serial.begin(115200);
     while (!Serial)
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+        delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
     Serial.println("Adafruit MPU6050 test!");
 
-  // Try to initialize!
+    // Try to initialize!
     if (!mpu.begin()) {
         Serial.println("Failed to find MPU6050 chip");
         while (1) {
-        delay(10);
+            delay(10);
         }
     }
     Serial.println("MPU6050 Found!");
