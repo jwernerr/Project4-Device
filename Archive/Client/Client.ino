@@ -19,6 +19,66 @@ static boolean doScan = false;
 static BLERemoteCharacteristic *pRemoteCharacteristic;
 static BLEAdvertisedDevice *myDevice;
 
+
+BLEClient* clients[1];
+
+class Led{
+  public:
+  int pin=12;
+  bool isOn=false;
+  int mode=0;//0=off, 1=on, 2=blinking
+  int timer=0;
+
+  Led(int _pin, int _mode){
+    pin=_pin;
+    mode=_mode;
+  }
+
+  void setMode(int _mode){
+    mode=_mode;
+    update();
+  }
+
+  void update(){
+    switch (mode){
+      case 0:
+        if (isOn){
+          digitalWrite(pin, LOW);
+          isOn=false;
+        }
+        break;
+      case 1:
+        if (!isOn){
+          digitalWrite(pin, HIGH);
+          isOn=true;
+        }
+        break;
+      case 2:
+        if (timer<3){
+          timer++;
+        }
+        else{
+          timer=0;
+          isOn=!isOn;
+          if (isOn){
+            digitalWrite(pin, HIGH);
+          }
+          else{
+            digitalWrite(pin, LOW);
+          }
+        }
+        break;
+      default:
+        if (isOn){
+          digitalWrite(pin, LOW);
+          isOn=false;
+        }
+    }
+  }
+};
+
+Led ledPin(12,0);
+
 // Callback function to handle notifications
 static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify) {
   Serial.print("Notify callback for characteristic ");
@@ -38,6 +98,9 @@ class MyClientCallback : public BLEClientCallbacks {
 
   void onDisconnect(BLEClient *pclient) {
     connected = false;
+
+    ledPin.setMode(0);
+
     Serial.println("onDisconnect");
   }
 };
@@ -89,6 +152,11 @@ bool connectToServer() {
   }
 
   connected = true;
+
+  clients[0]=pClient;
+
+  ledPin.setMode(1);
+
   return true;
 }
 /**
@@ -129,6 +197,8 @@ void setup() {
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
   pBLEScan->start(5, false);
+
+  pinMode(ledPin.pin, OUTPUT);
 }  // End of setup.
 
 // This is the Arduino main loop function.
@@ -154,9 +224,15 @@ void loop() {
 
     // Set the characteristic's value to be the array of bytes that is actually a string.
     pRemoteCharacteristic->writeValue(newValue.c_str(), newValue.length());
+    Serial.print("RSSI= ");
+    Serial.print(clients[0]->getRssi());
+    Serial.print(" of device ");
+    Serial.println(clients[0]->toString());
   } else if (doScan) {
     BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
 
-  delay(1000);  // Delay a second between loops.
+  ledPin.update();
+
+  delay(500);  // Delay half a second between loops.
 }  // End of loop
