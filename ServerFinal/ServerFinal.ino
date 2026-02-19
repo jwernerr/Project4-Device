@@ -359,13 +359,13 @@ void handleOutputs(){
   switch (pCharacteristicVib->getValue().toInt()){
     case 0:
       if (vibState){
-        digitalWrite(vibPin, LOW);
+        analogWrite(vibPin, 0);
         vibState=false;
       }
       break;
     case 1:
       if (!vibState){
-        digitalWrite(vibPin, HIGH);
+        analogWrite(vibPin, 150);
         vibState=true;
       }
       break;
@@ -384,7 +384,7 @@ void handleOutputs(){
       break;
     default:
       if (vibState){
-        digitalWrite(vibPin, LOW);
+        analogWrite(vibPin, 0);
         vibState=false;
       }
       Serial.println("default vib");
