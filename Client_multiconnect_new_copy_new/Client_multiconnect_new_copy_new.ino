@@ -1,28 +1,13 @@
-/**
- * A BLE client example that connects to multiple BLE servers simultaneously.
- *
- * This example demonstrates how to:
- * - Scan for multiple BLE servers
- * - Connect to multiple servers at the same time
- * - Interact with characteristics on different servers
- * - Handle disconnections and reconnections
- *
- * The example looks for servers advertising the service UUID: 4fafc201-1fb5-459e-8fcc-c5c9c331914b
- * and connects to up to MAX_SERVERS servers.
- *
- * Created by lucasssvaz
- * Based on the original Client example by Neil Kolban and chegewara
- */
+//(heavily) based on the multiconnect client example included in the BLEDevice library by lucasssvaz which was based on the original Client example by Neil Kolban and chegewara
 
 #include "BLEDevice.h"
 
-//#include <Arduino_JSON.h>
-
-// The remote service we wish to connect to.
+// The remote services we wish to connect to.
 static BLEUUID serviceUUIDIMU("e9025a47-2b1d-44fe-9d51-939cdd68e0fa");
 static BLEUUID serviceUUIDUserData("e72accb5-3e32-4a9f-96f9-57aa8f62043e");
 static BLEUUID serviceUUIDOutput("9925cdf1-edc8-46e9-bdde-66eb0dae208b");
-// The characteristic of the remote service we are interested in.
+
+// The characteristics of the remote service we are interested in.
 static BLEUUID charUUIDAcc("4c32fea1-2fd8-4978-8ca9-2dd6bdb3a37c");
 static BLEUUID charUUIDRot("9969f710-a2bf-4842-9f68-1a08f082ff4d");
 
@@ -31,13 +16,69 @@ static BLEUUID charUUIDID("45d3196c-58c7-4702-b559-e09bdbdfd264");
 static BLEUUID charUUIDLED("9681f19b-e769-4343-9d72-8d959e4caa32");
 static BLEUUID charUUIDVib("60599b1b-083e-4386-a682-160558733e0a");
 
-struct stationData{
-  bool hasStar;
-  int respawnTimer;
-  int ledPin;
+class Sternentaler{
+  public:
+    bool hasStar=false;
+
+    int glowIntensity=25;
+    bool ascending=true;
+
+    bool onCooldown=false;
+    int respawnTimer;
+    int cooldownLength=180;
+    int ledPin;
+
+    Sternentaler(int _ledPin){
+      ledPin=_ledPin;
+      respawnTimer=cooldownLength;
+    }
+
+    void update(){
+      //handle cooldown
+      if (onCooldown){
+        respawnTimer--;
+        if (respawnTimer<0){
+          respawnTimer=cooldownLength;
+          spawnStar();
+        }
+      }
+      //star flickering
+      if (hasStar){
+        if (ascending){
+          glowIntensity=glowIntensity+5;
+          if (glowIntensity>255){
+            glowIntensity=255;
+            ascending=false;
+          }
+        }
+        else{
+          glowIntensity=glowIntensity-5;
+          if (glowIntensity<20){
+            glowIntensity=20;
+            ascending=true;
+          }
+        }
+        analogWrite(ledPin,glowIntensity);
+      }
+    }
+
+    void spawnStar(){
+      hasStar=true;
+      analogWrite(ledPin,glowIntensity);
+    }
+
+    void despawnStar(bool _cooldown){
+      onCooldown=_cooldown;
+      if (_cooldown){
+        respawnTimer=cooldownLength;
+      }
+      hasStar=false;
+      analogWrite(ledPin,0);
+    }
+
 };
 
-stationData starMoney;
+Sternentaler sternentaler(12);
 
 
 // Maximum number of servers to connect to
@@ -84,15 +125,7 @@ static void notifyCallbackAcc(BLERemoteCharacteristic *pBLERemoteCharacteristic,
   // Find which server this notification came from
   for (int i = 0; i < MAX_SERVERS; i++) {
     if (servers[i].connected && servers[i].pRemoteCharacteristicAcc == pBLERemoteCharacteristic) {
-      /* Serial.print("Notify from server ");
-      Serial.print(servers[i].name);
-      Serial.print(" - Characteristic: ");
-      Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
-      Serial.print(" | Length: ");
-      Serial.print(length);
-      Serial.print(" | Data: ");
-      Serial.write(pData, length);
-      Serial.println(); */
+      
       float valuesAcc[3];
       memcpy(valuesAcc,pData,sizeof(valuesAcc));
       for (int j=0;j<3;j++){
@@ -107,15 +140,7 @@ static void notifyCallbackRot(BLERemoteCharacteristic *pBLERemoteCharacteristic,
   // Find which server this notification came from
   for (int i = 0; i < MAX_SERVERS; i++) {
     if (servers[i].connected && servers[i].pRemoteCharacteristicRot == pBLERemoteCharacteristic) {
-      /* Serial.print("Notify from server ");
-      Serial.print(servers[i].name);
-      Serial.print(" - Characteristic: ");
-      Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
-      Serial.print(" | Length: ");
-      Serial.print(length);
-      Serial.print(" | Data: ");
-      Serial.write(pData, length);
-      Serial.println(); */
+  
       float valuesRot[3];
       memcpy(valuesRot,pData,sizeof(valuesRot));
       for (int j=0;j<3;j++){
@@ -134,59 +159,57 @@ public:
   MyClientCallback(int index) : serverIndex(index) {}
 
   void onConnect(BLEClient *pclient) {
-    Serial.print("Connected to server ");
-    Serial.println(servers[serverIndex].name);
+    //Serial.print("Connected to server ");
+    //Serial.println(servers[serverIndex].name);
 
     if (servers[serverIndex].connected && servers[serverIndex].pRemoteCharacteristicLED != nullptr) {
-        // Create a unique message for each server
-        String newValue = "0";
-
-        Serial.print("Sending to ");
-        Serial.print(servers[serverIndex].name);
-        Serial.print(": ");
-        Serial.println(newValue);
-
-        // Write the value to the characteristic
-        servers[serverIndex].pRemoteCharacteristicLED->writeValue(newValue.c_str(), newValue.length());
+      // Turn server LED off
+      String newValue = "0";
+      servers[serverIndex].pRemoteCharacteristicLED->writeValue(newValue.c_str(), newValue.length());
     }
   }
 
   void onDisconnect(BLEClient *pclient) {
     servers[serverIndex].connected = false;
     connectedServers--;
-    Serial.print("Disconnected from server ");
+    /* Serial.print("Disconnected from server ");
     Serial.print(servers[serverIndex].name);
     Serial.print(" | Total connected: ");
-    Serial.println(connectedServers);
+    Serial.println(connectedServers); */
     doScan = true;  // Resume scanning to find replacement servers
+
+    if (connectedServers==0){
+      sternentaler.despawnStar(false);
+    }
   }
 };
 
 // Function to connect to a specific server
 bool connectToServer(int serverIndex) {
-  Serial.print("Connecting to server ");
+  /* Serial.print("Connecting to server ");
   Serial.print(serverIndex);
   Serial.print(" at address: ");
-  Serial.println(servers[serverIndex].pDevice->getAddress().toString().c_str());
+  Serial.println(servers[serverIndex].pDevice->getAddress().toString().c_str()); */
 
   servers[serverIndex].pClient = BLEDevice::createClient();
-  Serial.println(" - Created client");
+  /* Serial.println(" - Created client"); */
 
   // Set the callback for this specific server connection
   servers[serverIndex].pClient->setClientCallbacks(new MyClientCallback(serverIndex));
 
   // Connect to the remote BLE Server
   servers[serverIndex].pClient->connect(servers[serverIndex].pDevice);
-  Serial.println(" - Connected to server");
+  /* Serial.println(" - Connected to server"); */
   servers[serverIndex].pClient->setMTU(517);  // Request maximum MTU from server
 
-  // Obtain a reference to the service we are after in the remote BLE server
+  // Obtain a reference to the services we are after in the remote BLE server
   servers[serverIndex].pRemoteServiceIMU = servers[serverIndex].pClient->getService(serviceUUIDIMU);
   servers[serverIndex].pRemoteServiceUserData = servers[serverIndex].pClient->getService(serviceUUIDUserData);
   servers[serverIndex].pRemoteServiceOutput = servers[serverIndex].pClient->getService(serviceUUIDOutput);
 
+  //Only proceed to reference characteristics if all services have been found
   if (servers[serverIndex].pRemoteServiceIMU && servers[serverIndex].pRemoteServiceUserData&&servers[serverIndex].pRemoteServiceOutput){
-    Serial.println("all remote services found");
+    /* Serial.println("all remote services found"); */
 
     servers[serverIndex].pRemoteCharacteristicAcc = servers[serverIndex].pRemoteServiceIMU->getCharacteristic(charUUIDAcc);
     servers[serverIndex].pRemoteCharacteristicRot = servers[serverIndex].pRemoteServiceIMU->getCharacteristic(charUUIDRot);
@@ -196,10 +219,12 @@ bool connectToServer(int serverIndex) {
     servers[serverIndex].pRemoteCharacteristicLED = servers[serverIndex].pRemoteServiceOutput->getCharacteristic(charUUIDLED);
     servers[serverIndex].pRemoteCharacteristicVib = servers[serverIndex].pRemoteServiceOutput->getCharacteristic(charUUIDVib);
     
+    //Disconnect if a characteristic is missing
     if (!servers[serverIndex].pRemoteCharacteristicAcc || !servers[serverIndex].pRemoteCharacteristicRot ||!servers[serverIndex].pRemoteCharacteristicID ||!servers[serverIndex].pRemoteCharacteristicLED ||!servers[serverIndex].pRemoteCharacteristicVib){
       servers[serverIndex].pClient->disconnect();
       return false;
     }
+
   }
   else{
     servers[serverIndex].pClient->disconnect();
@@ -207,9 +232,12 @@ bool connectToServer(int serverIndex) {
   }
 
   if (servers[serverIndex].pRemoteCharacteristicID->canRead()) {
-    servers[serverIndex].deviceID = servers[serverIndex].pRemoteCharacteristicID->readValue();
-    Serial.print("Initial characteristic value: ");
-    Serial.println(servers[serverIndex].deviceID.c_str());
+    String value= servers[serverIndex].pRemoteCharacteristicID->readValue();
+    while (value.length() > 0 && !isPrintable(value[value.length() - 1])) {
+      value.remove(value.length() - 1);
+    }
+
+    servers[serverIndex].deviceID=value;
   }
   
   registerForNotifications(servers[serverIndex].pRemoteCharacteristicAcc, "Acc");
@@ -219,6 +247,10 @@ bool connectToServer(int serverIndex) {
   connectedServers++;
   Serial.print("Successfully connected! Total servers connected: ");
   Serial.println(connectedServers);
+
+  if (connectedServers==1){
+    sternentaler.spawnStar();
+  }
 
   servers[serverIndex].waveCounter=0;
 
@@ -282,20 +314,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 void setup() {
-  starMoney.hasStar=true;
-  starMoney.respawnTimer=30;
-  starMoney.ledPin=12;
-
   Serial.begin(115200);
 
-  pinMode(starMoney.ledPin,OUTPUT);
-  digitalWrite(starMoney.ledPin,HIGH);
-  Serial.println("=================================");
-  Serial.println("BLE Multi-Client Example");
-  Serial.println("=================================");
-  Serial.print("Max servers to connect: ");
-  Serial.println(MAX_SERVERS);
-  Serial.println();
+  //LED
+  pinMode(sternentaler.ledPin,OUTPUT);
+  sternentaler.despawnStar(false);
 
   // Initialize all server connections
   for (int i = 0; i < MAX_SERVERS; i++) {
@@ -318,39 +341,35 @@ void setup() {
   pBLEScan->setActiveScan(true);
   pBLEScan->start(5, false);
 
-  Serial.println("Scanning for BLE servers...");
+  /* Serial.println("Scanning for BLE servers..."); */
 }
 
 void loop() {
-  
 
   if (connectedServers > 0) {
     for (int i = 0; i < MAX_SERVERS; i++) {
+      //check if server is close enough
       if (servers[i].pClient!=nullptr){
         servers[i].close=isClose(servers[i]);
       }
-      Serial.print("is close: ");
-      Serial.println(servers[i].close);
+      /* Serial.print("is close: ");
+      Serial.println(servers[i].close); */
 
-      //if (servers[i].connected&&
-      Serial.print("wave: ");
-      Serial.println(checkWaving(servers[i].acc[0], servers[i].acc[1], servers[i].acc[2],i));
-      if (servers[i].close && checkWaving(servers[i].acc[0], servers[i].acc[1], servers[i].acc[2],i)){
-        starMoney.hasStar=false;
-        if (servers[i].connected && servers[i].pRemoteCharacteristicLED != nullptr) {
-        // Create a unique message for each server
-          String newValue = "1";
+      /* Serial.print("wave: ");
+      Serial.println(checkWaving(servers[i].acc[0], servers[i].acc[1], servers[i].acc[2],i)); */
 
-          Serial.print("Sending to ");
-          Serial.print(servers[i].name);
-          Serial.print(": ");
-          Serial.println(newValue);
+      if (sternentaler.hasStar&& servers[i].pRemoteCharacteristicLED != nullptr &&servers[i].close && checkWaving(servers[i].acc[0], servers[i].acc[1], servers[i].acc[2],servers[i].rot[0], servers[i].rot[1], servers[i].rot[2],i)){
+        sternentaler.despawnStar(true);
+        // Turn server LED on
+        String newValue = "1";
+        servers[i].pRemoteCharacteristicLED->writeValue(newValue.c_str(), newValue.length());
 
-        // Write the value to the characteristic
-          servers[i].pRemoteCharacteristicLED->writeValue(newValue.c_str(), newValue.length());
-        }
+        //Turn server vibration off
+        newValue="0";
+        servers[i].pRemoteCharacteristicVib->writeValue(newValue.c_str(), newValue.length());
+
       }
-      updateStation();
+      sternentaler.update();
     }
   } else {
     Serial.println("No servers connected");
@@ -361,13 +380,12 @@ void loop() {
     scanForServers();
   }
   
-  delay(2000);  // Delay between loop iterations
+  delay(250);  // Delay between loop iterations
 }
 
 void registerForNotifications(BLERemoteCharacteristic * pRemoteCharacteristic, String type){
-  // Read the value of the characteristic
 
-  // Register for notifications if available
+  // Register for notifications 
   if (pRemoteCharacteristic->canNotify()) {
     if (type=="Acc"){
       pRemoteCharacteristic->registerForNotify(notifyCallbackAcc);
@@ -382,8 +400,8 @@ void registerForNotifications(BLERemoteCharacteristic * pRemoteCharacteristic, S
 
 bool isClose(ServerConnection server){
   int rssi=server.pClient->getRssi();
-  Serial.print("rssi");
-  Serial.println(rssi);
+  /* Serial.print("rssi");
+  Serial.println(rssi); */
 
   int rssiCap=-50-connectedServers*10; //smaller cap the less people are around
   String newValue;
@@ -402,16 +420,16 @@ bool isClose(ServerConnection server){
   return server.close;
 }
 
-bool checkWaving(float aX, float aY, float aZ, int serverIndex){
+bool checkWaving(float aX, float aY, float aZ, float gX, float gY, float gZ, int serverIndex){
   Serial.print("X: ");
-  Serial.print(aX);
+  Serial.print(gX);
   Serial.print(", Y: ");
-  Serial.print(aY);
+  Serial.print(gY);
   Serial.print(", Z: ");
-  Serial.println(aZ);
-  if(aZ * aZ >= 7 * 7){
+  Serial.println(gZ);
+  if(aZ * aZ >= 7 * 7 && (gX<-1||gX>1)){
     servers[serverIndex].waveCounter +=1;
-    Serial.println("waving up");
+    /* Serial.println("waving up"); */
   }
   else{
     servers[serverIndex].waveCounter -=1;
@@ -419,43 +437,12 @@ bool checkWaving(float aX, float aY, float aZ, int serverIndex){
   if(servers[serverIndex].waveCounter < 0){
     servers[serverIndex].waveCounter = 0;
   }
-  if(servers[serverIndex].waveCounter >=2){
-    Serial.println("WAVE");
-    servers[serverIndex].waveCounter=2;
+  if(servers[serverIndex].waveCounter >=4){
+    requestVoiceLine(servers[serverIndex].deviceID, 0);
+    servers[serverIndex].waveCounter=0;
     return true;
   }
   return false;
-}
-
-//artifacts
-
-/* JSONVar JSONParse(uint8_t * input, size_t length){ //used AI for debugging here
-  char jsonBuffer[length+1];
-  memcpy(jsonBuffer,input,length);
-  jsonBuffer[length]='\0';
-
-  JSONVar parsedObject=JSON.parse(jsonBuffer);
-  Serial.println(JSON.typeof_(parsedObject));
-  return parsedObject;
-}  */
-
-void updateStation(){
-  if (starMoney.respawnTimer<0){
-    starMoney.respawnTimer=30;
-    starMoney.hasStar=true;
-    doScan=true;
-  }
-
-  if (starMoney.hasStar){
-    analogWrite(starMoney.ledPin,random(20,256));
-    //digitalWrite(starMoney.ledPin,HIGH);
-  }
-  else{
-    analogWrite(starMoney.ledPin,0);
-    starMoney.respawnTimer--;
-    Serial.print("cooldown");
-    Serial.println(starMoney.respawnTimer);
-  }
 }
 
 void processPendingConnections(){
@@ -483,12 +470,45 @@ void scanForServers(){
 
   processPendingConnections();
 
-  if (connectedServers==0 || !starMoney.hasStar){
+  if (connectedServers==0 || !sternentaler.hasStar){
     doScan=true;
-    if (!starMoney.hasStar){
-      starMoney.respawnTimer=starMoney.respawnTimer-7;
-      updateStation();
+
+    //make up for the scan delays
+    if (sternentaler.onCooldown){
+      for (int i=0;i<8;i++){
+        sternentaler.update();
+      }
     }
+
     delay(3000);
   }
 }
+
+void requestVoiceLine(String deviceID, int voiceLineIndex){
+  String request=String("{\"id\":\"");
+  request.concat(deviceID);
+  request.concat("\",\"index\":");
+  request.concat(String(voiceLineIndex));
+  request.concat("}");
+
+  Serial.println(request);
+}
+
+
+
+
+//**************************************
+//artifacts (spent too much time trying to understand data types for me to just delete it now)
+//**************************************
+
+/* #include <Arduino_JSON.h>
+
+JSONVar JSONParse(uint8_t * input, size_t length){ //used AI for debugging here
+  char jsonBuffer[length+1];
+  memcpy(jsonBuffer,input,length);
+  jsonBuffer[length]='\0';
+
+  JSONVar parsedObject=JSON.parse(jsonBuffer);
+  Serial.println(JSON.typeof_(parsedObject));
+  return parsedObject;
+}   */

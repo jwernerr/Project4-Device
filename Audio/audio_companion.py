@@ -4,6 +4,8 @@ import serial
 from serial.tools import list_ports   
 import sys
 
+import json
+
 import keyboard
 
 from playsound import playsound
@@ -44,6 +46,23 @@ running=True
 def stop_program():
     running=False # currently not working
 
+def play_voiceline(id, index):
+    companion_id=" "
+    if id.startswith("d"):
+        companion_id=id.replace("d","c")
+    elif id.startswith("p"):
+        companion_id=id.replace("p","c")
+    #insert databank search here and connect to right companion via bluetooth
+    match index:
+        case 0:
+            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
+        case 1:
+            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
+        case 2:
+            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
+
+
+
 keyboard.add_hotkey("a",stop_program)
 
 
@@ -52,17 +71,15 @@ try:
         while running:
             if ser.in_waiting > 0:
                 data = ser.readline().decode('utf-8').strip()
-                if data == "HOLD1":
-                    print ("hold1")
-                elif data == "RELEASE1":
-                    print("release1")
-                elif data=="HOLD2":
-                    print ("hold2") 
-                elif data == "RELEASE2":
-                    print("release2")
-                elif data == "WAVE":
-                    playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
-                    print("should have played")
+                print("data",data)
+                dict=json.loads(data)
+                id=dict["id"]
+                print("id",id)
+                index=dict["index"]
+                print("index",index)
+                if id:
+                    print("id",id,"index",index)
+                    play_voiceline(id,index)
 
             
 except serial.SerialException as e:
