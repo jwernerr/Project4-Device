@@ -374,9 +374,13 @@ void handleOutputs(){
       if (vibTimer<0 && vibState){
         analogWrite(vibPin, 0);
         vibState=false;
-        vibTimer=10;
+        vibTimer=15;
       }
       else if(vibTimer<0 && !vibState){
+        analogWrite(vibPin, 150);
+        delay(10);
+        analogWrite(vibPin, 0);
+        delay(10);
         analogWrite(vibPin, 150);
         vibState=true;
         vibTimer=1;

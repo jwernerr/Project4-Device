@@ -10,6 +10,7 @@ import keyboard
 
 from playsound import playsound
 
+fakeDB=[True,True,True]
 
 #(stolen) port logic
 
@@ -53,13 +54,19 @@ def play_voiceline(id, index):
     elif id.startswith("p"):
         companion_id=id.replace("p","c")
     #insert databank search here and connect to right companion via bluetooth
-    match index:
-        case 0:
-            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
-        case 1:
-            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
-        case 2:
-            playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/testAudio.wav")
+    print(fakeDB[index])
+    if fakeDB[index]:
+        match index:
+            case 0:
+                print("should play")
+                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/FallenStar.wav")
+            case 1:
+                print("should play")
+                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/Glowing.wav")
+            case 2:
+                print("should play")
+                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/StarToPlace.wav")
+        fakeDB[index]=False
 
 
 
@@ -71,15 +78,19 @@ try:
         while running:
             if ser.in_waiting > 0:
                 data = ser.readline().decode('utf-8').strip()
-                print("data",data)
-                dict=json.loads(data)
-                id=dict["id"]
-                print("id",id)
-                index=dict["index"]
-                print("index",index)
-                if id:
-                    print("id",id,"index",index)
-                    play_voiceline(id,index)
+                #print("data",data)
+                try:
+                    dict=json.loads(data)
+                except:
+                    dict={"id":False,"index":False}
+                else:
+                    id=dict["id"]
+                    #print("id",id)
+                    index=dict["index"]
+                    #print("index",index)
+                    if id:
+                        #print("id",id,"index",index)
+                        play_voiceline(id,index)
 
             
 except serial.SerialException as e:

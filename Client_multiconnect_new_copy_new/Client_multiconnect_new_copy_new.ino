@@ -245,8 +245,8 @@ bool connectToServer(int serverIndex) {
 
   servers[serverIndex].connected = true;
   connectedServers++;
-  Serial.print("Successfully connected! Total servers connected: ");
-  Serial.println(connectedServers);
+  //Serial.print("Successfully connected! Total servers connected: ");
+  //Serial.println(connectedServers);
 
   if (connectedServers==1){
     sternentaler.spawnStar();
@@ -254,18 +254,20 @@ bool connectToServer(int serverIndex) {
 
   servers[serverIndex].waveCounter=0;
 
+  requestVoiceLine(servers[serverIndex].deviceID,0);
+
   return true;
 }
 
 // Scan callback class to find BLE servers
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
-    Serial.print("BLE Device found: ");
-    Serial.println(advertisedDevice.toString().c_str());
+    //Serial.print("BLE Device found: ");
+    //Serial.println(advertisedDevice.toString().c_str());
 
     // Check if this device has the service we're looking for
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUIDIMU)) {
-      Serial.println(" -> This device has our service!");
+      //Serial.println(" -> This device has our service!");
 
       // Check if we already know about this device
       String deviceAddress = advertisedDevice.getAddress().toString().c_str();
@@ -281,7 +283,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       }
 
       if (alreadyKnown) {
-        Serial.println(" -> Already connected or connecting to this device");
+        //Serial.println(" -> Already connected or connecting to this device");
         return;
       }
 
@@ -302,7 +304,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
             }
           }
           if (pendingConnections >= MAX_SERVERS) {
-            Serial.println("Found enough servers, stopping scan");
+            //Serial.println("Found enough servers, stopping scan");
             BLEDevice::getScan()->stop();
             doScan = false;
           }
@@ -351,6 +353,9 @@ void loop() {
       //check if server is close enough
       if (servers[i].pClient!=nullptr){
         servers[i].close=isClose(servers[i]);
+        if (servers[i].close){
+          requestVoiceLine(servers[i].deviceID,1);
+        }
       }
       /* Serial.print("is close: ");
       Serial.println(servers[i].close); */
@@ -372,7 +377,7 @@ void loop() {
       sternentaler.update();
     }
   } else {
-    Serial.println("No servers connected");
+    //Serial.println("No servers connected");
   }
 
   // Resume scanning if we have room for more connections
@@ -393,8 +398,8 @@ void registerForNotifications(BLERemoteCharacteristic * pRemoteCharacteristic, S
     else{
       pRemoteCharacteristic->registerForNotify(notifyCallbackRot);
     }
-    Serial.print(" - Registered for notifications for UUID ");
-    Serial.println(pRemoteCharacteristic->getUUID().toString());
+    //Serial.print(" - Registered for notifications for UUID ");
+    //Serial.println(pRemoteCharacteristic->getUUID().toString());
   }
 }
 
@@ -421,12 +426,12 @@ bool isClose(ServerConnection server){
 }
 
 bool checkWaving(float aX, float aY, float aZ, float gX, float gY, float gZ, int serverIndex){
-  Serial.print("X: ");
+  /* Serial.print("X: ");
   Serial.print(gX);
   Serial.print(", Y: ");
   Serial.print(gY);
   Serial.print(", Z: ");
-  Serial.println(gZ);
+  Serial.println(gZ); */
   if(aZ * aZ >= 7 * 7 && (gX<-1||gX>1)){
     servers[serverIndex].waveCounter +=1;
     /* Serial.println("waving up"); */
@@ -438,7 +443,7 @@ bool checkWaving(float aX, float aY, float aZ, float gX, float gY, float gZ, int
     servers[serverIndex].waveCounter = 0;
   }
   if(servers[serverIndex].waveCounter >=4){
-    requestVoiceLine(servers[serverIndex].deviceID, 0);
+    requestVoiceLine(servers[serverIndex].deviceID, 2);
     servers[serverIndex].waveCounter=0;
     return true;
   }
@@ -450,9 +455,9 @@ void processPendingConnections(){
   for (int i = 0; i < MAX_SERVERS; i++) {
     if (servers[i].doConnect) {
       if (connectToServer(i)) {
-        Serial.println("Connection successful");
+        //Serial.println("Connection successful");
       } else {
-        Serial.println("Connection failed");
+        //Serial.println("Connection failed");
         // Clear this slot so we can try another server
         delete servers[i].pDevice;
         servers[i].pDevice = nullptr;
@@ -463,7 +468,7 @@ void processPendingConnections(){
 }
 
 void scanForServers(){
-  Serial.println("Resuming scan for more servers...");
+  //Serial.println("Resuming scan for more servers...");
   BLEDevice::getScan()->start(5, false);
   doScan = false;
   delay(5000);  // Wait for scan to complete
