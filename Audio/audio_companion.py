@@ -10,6 +10,11 @@ import keyboard
 
 from playsound import playsound
 
+
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 fakeDB=[True,True,True]
 
 #(stolen) port logic
@@ -58,14 +63,14 @@ def play_voiceline(id, index):
     if fakeDB[index]:
         match index:
             case 0:
-                print("should play")
-                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/FallenStar.wav")
+                sound_path = os.path.join(BASE_DIR, "FallenStar.wav")
+                playsound(sound_path)
             case 1:
-                print("should play")
-                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/Glowing.wav")
+                sound_path = os.path.join(BASE_DIR, "Glowing.wav")
+                playsound(sound_path)
             case 2:
-                print("should play")
-                playsound("C:/Users/jenny/Documents/GMB/ProjectIV/Project4-Device/Audio/StarToPlace.wav")
+                sound_path = os.path.join(BASE_DIR, "StarToPlace.wav")
+                playsound(sound_path)
         fakeDB[index]=False
 
 
